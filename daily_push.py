@@ -507,8 +507,6 @@ def run_task():
     logger.info("任务执行完毕")
     logger.info("=" * 50)
 
-    return result
-
 
 def schedule_task():
     """定时任务模式：每天早上8:00执行"""
