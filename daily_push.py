@@ -19,8 +19,7 @@ HOT_API_MIRRORS = [
     "https://apinews.geekaso.com",
 ]
 PLATFORMS = ["weibo", "toutiao", "douyin"]
-SCKEY = "SCT347210TbY57TPQIZB7tO9dqPYjHtQaT"
-SERVER_CHAN_URL = f"https://sctapi.ftqq.com/{SCKEY}.send"
+SCKEY_FILE = "sckey.txt"
 PUSH_HOUR = 8
 PUSH_MINUTE = 0
 
@@ -397,18 +396,18 @@ def format_nasdaq_section(nasdaq_data):
     return "\n".join(lines)
 
 
-def push_to_wechat(title, content):
+def push_to_wechat(title, content, sckey):
     """通过Server酱推送到微信"""
     try:
-        logger.info(f"推送标题: {title}")
-        logger.info(f"推送内容长度: {len(content)} 字符")
+        url = f"https://sctapi.ftqq.com/{sckey}.send"
+        logger.info(f"推送SCKEY: {sckey[:8]}...")
 
         payload = {
             "title": title,
             "desp": content,
         }
 
-        resp = requests.post(SERVER_CHAN_URL, data=payload, timeout=15)
+        resp = requests.post(url, data=payload, timeout=15)
         result = resp.json()
 
         if result.get("code") == 0:
@@ -421,6 +420,38 @@ def push_to_wechat(title, content):
     except Exception as e:
         logger.error(f"推送异常: {e}")
         return None
+
+
+def load_sckey_list():
+    """从sckey.txt读取SCKEY列表，每行一个"""
+    try:
+        with open(SCKEY_FILE, "r", encoding="utf-8") as f:
+            keys = [line.strip() for line in f if line.strip() and not line.strip().startswith("#")]
+        logger.info(f"从 {SCKEY_FILE} 加载到 {len(keys)} 个SCKEY")
+        return keys
+    except FileNotFoundError:
+        logger.error(f"未找到 {SCKEY_FILE}，请创建并添加SCKEY")
+        return []
+
+
+def push_to_all(title, content):
+    """推送给列表中所有人"""
+    sckey_list = load_sckey_list()
+    if not sckey_list:
+        logger.error("SCKEY列表为空，无法推送")
+        return
+    total = len(sckey_list)
+    success = 0
+    fail = 0
+    logger.info(f"开始推送，共 {total} 人")
+    for i, sckey in enumerate(sckey_list, 1):
+        logger.info(f"推送进度: {i}/{total}")
+        result = push_to_wechat(title, content, sckey)
+        if result and result.get("code") == 0:
+            success += 1
+        else:
+            fail += 1
+    logger.info(f"推送完成: 成功 {success} 人, 失败 {fail} 人")
 
 
 def run_task():
@@ -470,7 +501,7 @@ def run_task():
 """
 
     # 6. 推送
-    result = push_to_wechat(title, content)
+    push_to_all(title, content)
 
     logger.info("=" * 50)
     logger.info("任务执行完毕")
