@@ -5,20 +5,25 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   daily-push:
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: 设置 Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.3.0
         with:
           python-version: '3.10'
 
       - name: 安装依赖
         run: pip install -r requirements.txt
+        timeout-minutes: 10
 
       - name: 执行推送
         run: python daily_push.py
+        timeout-minutes: 5
