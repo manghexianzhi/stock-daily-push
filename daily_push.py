@@ -249,6 +249,19 @@ def classify_and_summarize(items):
     """将热点分类为国内要事和全球要事，各精选3条，附炒股视角摘要"""
     domestic = []
     international = []
+    unclassified = []
+
+    CHINA_KEYWORDS = ["中国", "北京", "上海", "深圳", "广州", "香港", "澳门", "台湾",
+                      "大陆", "内地", "国务院", "央行", "发改委", "工信部", "财政部",
+                      "证监会", "银保监", "商务部", "外交部", "国防部", "国安部",
+                      "A股", "港股", "人民币", "央行", "工信部", "网信办", "科技部"]
+    
+    FOREIGN_COUNTRIES = ["美国", "日本", "韩国", "朝鲜", "俄罗斯", "乌克兰", 
+                         "德国", "法国", "英国", "欧盟", "印度", "越南", "泰国",
+                         "新加坡", "马来西亚", "印尼", "菲律宾", "澳大利亚", "新西兰",
+                         "加拿大", "墨西哥", "巴西", "阿根廷", "南非", "埃及",
+                         "中东", "以色列", "伊朗", "沙特", "阿联酋", "土耳其",
+                         "意大利", "西班牙", "荷兰", "瑞士", "瑞典", "挪威"]
 
     for item in items:
         title = item["title"]
@@ -262,12 +275,36 @@ def classify_and_summarize(items):
             international.append(item)
         elif is_domestic:
             domestic.append(item)
+        else:
+            has_china = any(kw in text for kw in CHINA_KEYWORDS)
+            has_foreign = any(kw in text for kw in FOREIGN_COUNTRIES)
+            
+            if has_china and not has_foreign:
+                domestic.append(item)
+            elif has_foreign:
+                international.append(item)
+            else:
+                unclassified.append(item)
 
     domestic.sort(key=lambda x: int(x.get("hot", 0) or 0), reverse=True)
     international.sort(key=lambda x: int(x.get("hot", 0) or 0), reverse=True)
 
+
+
     domestic_top3 = domestic[:3]
     international_top3 = international[:3]
+
+    if len(domestic_top3) < 3 and unclassified:
+        unclassified.sort(key=lambda x: int(x.get("hot", 0) or 0), reverse=True)
+        needed = 3 - len(domestic_top3)
+        domestic_top3.extend(unclassified[:needed])
+
+
+    if len(international_top3) < 3 and unclassified:
+        remaining = [item for item in unclassified if item not in domestic_top3]
+        needed = 3 - len(international_top3)
+        international_top3.extend(remaining[:needed])
+
 
     return domestic_top3, international_top3
 
