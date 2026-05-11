@@ -1,4 +1,4 @@
-name: 每日宏观热点推送
+name: 每日宏观热点推送  
 
 on:
   schedule:
