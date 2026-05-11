@@ -17,8 +17,16 @@ HOT_API_MIRRORS = [
     "https://api-hot.imsyy.top",
     "https://api.guole.fun",
     "https://apinews.geekaso.com",
+    "https://api.dailyhot.net",
+    "https://dailyhot-api.pages.dev",
 ]
 PLATFORMS = ["weibo", "toutiao", "douyin"]
+
+# 备用数据源：新浪/腾讯热榜
+BAIDU_HOT_URL = "https://top.baidu.com/board?tab=realtime"
+SINA_HOT_URL = "https://feed.mix.sina.com.cn/api/roll/get?pageid=121&lid=1346&num=50"
+TENCENT_HOT_URL = "https://pacaio.match.qq.com/irs/rcd?cid=1&token=49cbb3d5481a9f7e405e1979c03b8d50"
+
 SCKEY_FILE = "sckey.txt"
 PUSH_HOUR = 8
 PUSH_MINUTE = 0
@@ -213,8 +221,87 @@ def fetch_hot_data():
         if not success:
             logger.error(f"[{platform}] 所有镜像均请求失败")
 
+    if len(all_items) == 0:
+        logger.info("所有主要数据源失败，尝试备用数据源...")
+        all_items.extend(fetch_sina_hot())
+        all_items.extend(fetch_tencent_hot())
+        
+        seen_titles = set()
+        unique_items = []
+        for item in all_items:
+            if item["title"] not in seen_titles:
+                seen_titles.add(item["title"])
+                unique_items.append(item)
+        all_items = unique_items
+
     logger.info(f"聚合去重后共 {len(all_items)} 条热点")
     return all_items
+
+
+def fetch_sina_hot():
+    """获取新浪热榜数据"""
+    items = []
+    try:
+        logger.info(f"请求新浪热榜接口: {SINA_HOT_URL}")
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        resp = requests.get(SINA_HOT_URL, headers=headers, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+
+        if data.get("result", {}).get("status") != 0:
+            logger.warning("新浪热榜接口返回非成功状态")
+            return items
+
+        for item in data.get("result", {}).get("data", []):
+            title = item.get("title", "").strip()
+            if title:
+                items.append({
+                    "title": title,
+                    "desc": item.get("summary", "").strip(),
+                    "hot": item.get("hot", 0) or item.get("viewCount", 0),
+                    "platform": "sina",
+                    "url": item.get("url", ""),
+                })
+        
+        logger.info(f"[新浪] 获取到 {len(items)} 条热点")
+        
+    except Exception as e:
+        logger.warning(f"新浪热榜请求失败: {e}")
+    
+    return items
+
+
+def fetch_tencent_hot():
+    """获取腾讯热榜数据"""
+    items = []
+    try:
+        logger.info(f"请求腾讯热榜接口: {TENCENT_HOT_URL}")
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        resp = requests.get(TENCENT_HOT_URL, headers=headers, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+
+        for item in data.get("data", []):
+            title = item.get("title", "").strip()
+            if title:
+                items.append({
+                    "title": title,
+                    "desc": item.get("intro", "").strip(),
+                    "hot": item.get("hotScore", 0) or item.get("readCount", 0),
+                    "platform": "tencent",
+                    "url": item.get("url", ""),
+                })
+        
+        logger.info(f"[腾讯] 获取到 {len(items)} 条热点")
+        
+    except Exception as e:
+        logger.warning(f"腾讯热榜请求失败: {e}")
+    
+    return items
 
 
 def should_filter(title, desc=""):
