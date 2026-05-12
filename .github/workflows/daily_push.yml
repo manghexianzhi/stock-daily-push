@@ -2,7 +2,7 @@ name: 每日宏观热点推送
 
 on:
   schedule:
-    - cron: '30 0 * * *'
+    - cron: '0 21 * * *'
   workflow_dispatch:
 
 env:
